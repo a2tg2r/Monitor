@@ -7,7 +7,7 @@ ACCOUNTS = [
     {"username": "Farmerinmm29", "password": "1234567890qeyip"},
     {"username": "Farmermm2299", "password": "1234567890qeyip"},
     {"username": "Farmerincrazy", "password": "1234567890qeyip"},
-    {"username": "Mm2craxyfarm", "password": "123456qeyip"},
+    {"username": "Mm2craxyfarm", "password": "1234567890qeyip"},
     {"username": "Mm2craxyfarm0", "password": "1234567890qeyip"},
     {"username": "Mm2craxyfarm01", "password": "1234567890qeyip"},
     {"username": "Mm2craxyfarm02", "password": "1234567890qeyip"},
@@ -19,6 +19,7 @@ ACCOUNTS = [
 LOGIN_URL = "https://www.roblox.com/login"
 FRIEND_PROFILE_URL = "https://www.roblox.com/users/1759864847/profile"
 GAME_URL = "https://www.roblox.com/games/142823291/Murder-Mystery-2"
+CSRF_TOKEN_URL = "https://auth.roblox.com/v2/login"
 
 # --- LOGGING SETUP --- #
 logging.basicConfig(
@@ -29,19 +30,43 @@ logging.basicConfig(
 logging.info("AFK script started")
 
 
+# --- FUNCTION TO FETCH CSRF TOKEN --- #
+def fetch_csrf_token(session):
+    try:
+        response = session.post(CSRF_TOKEN_URL)
+        if response.status_code == 403 and "X-CSRF-TOKEN" in response.headers:
+            csrf_token = response.headers["X-CSRF-TOKEN"]
+            logging.info("[SUCCESS] CSRF Token fetched successfully.")
+            return csrf_token
+        else:
+            logging.error("[ERROR] Failed to fetch CSRF Token.")
+            return None
+    except Exception as e:
+        logging.error(f"[ERROR] Exception while fetching CSRF Token: {e}")
+        return None
+
+
 # --- FUNCTION TO LOG IN TO ROBLOX --- #
 def roblox_login(account):
     session = requests.Session()
     headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/json"
     }
+
+    csrf_token = fetch_csrf_token(session)
+    if not csrf_token:
+        logging.error("[ERROR] Failed to obtain CSRF Token. Cannot proceed with login.")
+        return None
+
+    headers["X-CSRF-TOKEN"] = csrf_token
     payload = {
-        "username": account['username'],
+        "ctype": "Username",
+        "cvalue": account['username'],
         "password": account['password']
     }
 
     try:
-        response = session.post(LOGIN_URL, data=payload, headers=headers)
+        response = session.post(LOGIN_URL, json=payload, headers=headers)
         if response.status_code == 200 and '.ROBLOSECURITY' in session.cookies:
             logging.info(f"[SUCCESS] Logged in as {account['username']}")
             return session
@@ -88,7 +113,7 @@ def keep_session_alive(account):
     logging.info(f"[INFO] {account['username']} is now AFK indefinitely.")
     while True:
         try:
-            pass  # Keeps the session alive indefinitely
+            pass  # Infinite loop to keep the session alive
         except KeyboardInterrupt:
             logging.info(f"[INFO] Script manually stopped for {account['username']}.")
             break
