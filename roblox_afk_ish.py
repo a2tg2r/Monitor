@@ -1,5 +1,6 @@
 import requests
 import logging
+import re
 
 # --- CONFIGURATION --- #
 ACCOUNTS = [
@@ -27,31 +28,31 @@ logging.basicConfig(
 )
 logging.info("AFK script started")
 
-# --- FUNCTION TO SET UP SESSION USING COOKIES --- #
-def set_up_session_with_cookies(account):
+# --- FUNCTION TO LOGIN USING COOKIES --- #
+def roblox_login_with_cookie(account):
     session = requests.Session()  # Maintain session for cookies
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
     }
-    
+
+    # Set the cookie for the session
+    session.cookies.set(".ROBLOSECURITY", account["cookie"])
+
     try:
-        # Set the provided cookies into the session
-        session.cookies.update(account["cookies"])
-        
-        # Test if the session is authenticated by checking the response from a protected page
+        # Test if the cookie works by checking the login status
         response = session.get("https://www.roblox.com/home", headers=headers)
-        if response.status_code == 200 and ".ROBLOSECURITY" in session.cookies:
+        if response.status_code == 200 and "Account" in response.text:
             logging.info(f"[SUCCESS] Logged in as {account['username']} using cookies.")
-            return session  # Return session for future requests
+            return session
         else:
-            logging.error(f"[ERROR] Failed to authenticate using cookies for {account['username']}")
+            logging.error(f"[ERROR] Failed to authenticate using cookie for {account['username']}")
             return None
     except Exception as e:
-        logging.error(f"[ERROR] Exception during session setup for {account['username']}: {e}")
+        logging.error(f"[ERROR] Exception during login for {account['username']}: {e}")
         return None
 
-# --- FUNCTION TO OPEN THE GAME URL --- #
-def open_game_url(session, account, server_id=None):
+# --- FUNCTION TO JOIN THE GAME --- #
+def join_game(session, account, server_id=None):
     try:
         # If we have a specific server_id, join the same server
         if server_id:
@@ -61,13 +62,13 @@ def open_game_url(session, account, server_id=None):
         
         response = session.get(game_url, headers={"User-Agent": "Mozilla/5.0"})
         if response.status_code == 200:
-            logging.info(f"[SUCCESS] {account['username']} navigated to the game page.")
+            logging.info(f"[SUCCESS] {account['username']} is now in the game.")
             return True
         else:
             logging.error(f"[ERROR] {account['username']} failed to access game page.")
             return False
     except Exception as e:
-        logging.error(f"[ERROR] Exception opening game for {account['username']}: {e}")
+        logging.error(f"[ERROR] Exception joining game for {account['username']}: {e}")
         return False
 
 # --- FUNCTION TO KEEP SESSION ALIVE --- #
@@ -83,34 +84,45 @@ def keep_session_alive(account):
             logging.error(f"[ERROR] Session error for {account['username']}: {e}")
             break
 
+# --- FUNCTION TO EXTRACT SERVER ID --- #
+def extract_server_id(response_text):
+    """
+    This function assumes the server ID is present in the game page's HTML or URL.
+    You may need to adjust the regex depending on the actual format.
+    """
+    match = re.search(r'["&]serverPlaceId=(\d+)', response_text)
+    if match:
+        return match.group(1)
+    else:
+        logging.error("[ERROR] Could not find server ID in the page.")
+        return None
+
 # --- MAIN FUNCTION --- #
 def main():
     server_id = None  # Variable to store the server ID for the game
     
     for index, account in enumerate(ACCOUNTS):
         logging.info(f"[INFO] Starting session for {account['username']}")
-        session = set_up_session_with_cookies(account)
+        session = roblox_login_with_cookie(account)
         
         if session:
             # If this is the first account, get the server ID
             if index == 0:
                 # First account joins the game and gets the server_id from the URL
-                if open_game_url(session, account):
-                    logging.info(f"[INFO] {account['username']} joined the game, fetching server ID.")
-                    # In a real scenario, you'd need to extract the server ID from the page response or URL
-                    # For now, we just use the server ID as a placeholder or static URL
-                    server_id = "YOUR_SERVER_ID"  # Replace with the actual server ID dynamically
+                response = session.get(GAME_URL)
+                server_id = extract_server_id(response.text)
+                if server_id:
+                    logging.info(f"[INFO] {account['username']} joined the game, fetched server ID: {server_id}.")
                 else:
-                    logging.error(f"[ERROR] {account['username']} failed to join the game.")
+                    logging.error(f"[ERROR] Failed to fetch server ID for {account['username']}.")
                     continue
             
             # After the first account joins, all others join the same server
-            if server_id and open_game_url(session, account, server_id):
+            if server_id and join_game(session, account, server_id):
                 logging.info(f"[SUCCESS] {account['username']} joined the same server.")
                 keep_session_alive(account)
             else:
                 logging.error(f"[ERROR] {account['username']} could not join the same server.")
-
         else:
             logging.error(f"[ERROR] Could not log in for {account['username']}")
 
