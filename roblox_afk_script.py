@@ -1,13 +1,13 @@
 import time
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
 
-# --- CONFIGURATION --- #
-ACCOUNTS = [
+# List of accounts (replace with actual usernames and passwords)
+accounts = [
     {"username": "KiwiSubZeroPTG", "password": "14670qeyip"},
     {"username": "Farmerinmm29", "password": "1234567890qeyip"},
     {"username": "Farmermm2299", "password": "1234567890qeyip"},
@@ -21,64 +21,67 @@ ACCOUNTS = [
     {"username": "Mm2craxyfarm11", "password": "1234567890qeyip"}
 ]
 
-PROFILE_URL = "https://www.roblox.com/users/1759864847/profile"  # Iz9vs2k's Profile URL
-
-# --- FUNCTION TO LOG IN TO ROBLOX --- #
-def roblox_login(driver, account):
-    driver.get('https://www.roblox.com/login')
-
-    username_field = driver.find_element(By.NAME, 'username')
-    password_field = driver.find_element(By.NAME, 'password')
-
-    username_field.send_keys(account['username'])
-    password_field.send_keys(account['password'])
-
-    # Click login button
-    login_button = driver.find_element(By.XPATH, '//button[@data-testid="login-button"]')
-    login_button.click()
-
-    time.sleep(5)  # Wait for the login process to complete
-
-    # Check if login was successful by finding an element only present when logged in
-    if driver.find_element(By.CLASS_NAME, 'avatar-icon'):
-        print(f"[SUCCESS] Logged in as {account['username']}")
-    else:
-        print(f"[ERROR] Failed to log in as {account['username']}")
-
-# --- FUNCTION TO JOIN THE GAME --- #
-def join_game(driver):
-    driver.get(PROFILE_URL)
-    time.sleep(5)  # Allow time for profile page to load
-
-    # Wait for the "Join" button and click it
-    join_button = driver.find_element(By.XPATH, '//button[@data-testid="join-button"]')
-    join_button.click()
-
-    time.sleep(5)  # Wait for the game to start loading
-    print("[INFO] Joined the game successfully.")
-
-# --- FUNCTION TO KEEP SESSION ALIVE --- #
-def keep_session_alive(driver):
-    while True:
-        time.sleep(60)  # Keep the session alive by doing nothing
-
-# --- MAIN FUNCTION --- #
-def main():
-    # Set up the WebDriver (Chrome or Firefox; you need to have the driver installed on your machine)
+# Function to create a headless Chrome driver
+def create_driver():
     options = Options()
-    options.add_argument("--headless")  # Run in headless mode (without opening a browser window)
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--headless")  # Run Chrome in headless mode (no GUI)
+    options.add_argument("--disable-gpu")  # Disable GPU hardware acceleration
+    options.add_argument("--no-sandbox")  # Disable the sandbox for headless mode
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    return driver
 
-    for account in ACCOUNTS:
-        print(f"[INFO] Starting session for {account['username']}")
-        roblox_login(driver, account)
-        join_game(driver)
-        keep_session_alive(driver)
+# Function to log into Roblox
+def roblox_login(driver, username, password):
+    login_url = "https://www.roblox.com/login"
+    driver.get(login_url)
+    time.sleep(3)  # Wait for the page to load
+    
+    # Find and fill the login form
+    driver.find_element(By.NAME, "username").send_keys(username)
+    driver.find_element(By.NAME, "password").send_keys(password)
+    driver.find_element(By.NAME, "password").send_keys(Keys.RETURN)
+    time.sleep(5)  # Wait for login to complete
 
-    driver.quit()
+# Function to visit the friend's profile and join the game
+def visit_profile_and_join(driver):
+    # URL of the friend's profile to join the game (Iz9vs2k)
+    friend_profile_url = "https://www.roblox.com/users/1759864847/profile"
+    
+    # Navigate to the profile URL
+    driver.get(friend_profile_url)
+    time.sleep(3)  # Wait for the page to load
+
+    # Find the "Join" button (adjust the XPATH or class if necessary)
+    try:
+        join_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Join')]")
+        join_button.click()
+        print("Joined the game successfully!")
+    except Exception as e:
+        print(f"Error joining game: {e}")
+
+# Main function to run the script
+def main():
+    for account in accounts:
+        # Create the driver for each account
+        print(f"Logging in with account: {account['username']}")
+        driver = create_driver()
+
+        # Log into Roblox with the current account
+        roblox_login(driver, account['username'], account['password'])
+
+        # Visit the profile and join the game
+        visit_profile_and_join(driver)
+
+        # Keep the session open forever to remain AFK
+        print(f"Account {account['username']} is now AFK indefinitely...")
+        
+        # Keep the session alive by having an infinite loop that does nothing
+        while True:
+            time.sleep(60)  # Sleep for 1 minute to avoid overloading the CPU
+
+        # Quit the driver after finishing the session (won't be reached in the current logic)
+        driver.quit()
 
 if __name__ == "__main__":
     main()
