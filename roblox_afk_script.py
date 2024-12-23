@@ -31,9 +31,9 @@ def create_driver():
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     
-    # Install and use the correct ChromeDriver
+    # Use the latest version of ChromeDriver automatically
     driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager(version="130.0.6564.0").install()),
+        service=Service(ChromeDriverManager().install()),
         options=chrome_options
     )
     return driver
