@@ -1,14 +1,12 @@
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from multiprocessing import Process
 
-# --- CONFIGURATION --- #
+# List of 11 accounts with usernames and passwords
 ACCOUNTS = [
     {"username": "KiwiSubZeroPTG", "password": "14670qeyip"},
     {"username": "Farmerinmm29", "password": "1234567890qeyip"},
@@ -23,81 +21,72 @@ ACCOUNTS = [
     {"username": "Mm2craxyfarm11", "password": "1234567890qeyip"}
 ]
 
-LOGIN_URL = "https://www.roblox.com/login"
+# Profile URL for Iz9vs2k
 PROFILE_URL = "https://www.roblox.com/users/1759864847/profile"
 
-
+# Function to create and return a new browser driver instance
 def create_driver():
-    """Create a headless Chrome driver."""
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1920x1080")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run in headless mode
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    
+    # Install and use the correct ChromeDriver
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager(version="130.0.6564.0").install()),
+        options=chrome_options
+    )
     return driver
 
-
+# Function to log in, join the game and set AFK
 def login_and_join_afk(account):
-    """Login to Roblox account, join Iz9vs2k's server, and stay AFK."""
     driver = create_driver()
     try:
-        driver.get(LOGIN_URL)
-        print(f"[INFO] Logging in with account: {account['username']}")
+        # Open the Roblox login page
+        driver.get("https://www.roblox.com/login")
 
-        # Enter username
-        username_field = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.NAME, "username"))
-        )
-        username_field.send_keys(account['username'])
+        # Find the username and password fields and enter credentials
+        username_input = driver.find_element(By.NAME, "username")
+        password_input = driver.find_element(By.NAME, "password")
+        login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
 
-        # Enter password
-        password_field = WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.NAME, "password"))
-        )
-        password_field.send_keys(account['password'])
-
-        # Click login button
-        login_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.ID, "login-button"))
-        )
+        username_input.send_keys(account["username"])
+        password_input.send_keys(account["password"])
         login_button.click()
+
+        # Wait for login to complete (adjust time as needed)
         time.sleep(5)
 
-        # Navigate to Iz9vs2k's profile
+        # Go to Iz9vs2k's profile page
         driver.get(PROFILE_URL)
-        time.sleep(5)
 
-        # Click join button
-        join_button = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Join')]"))
-        )
+        # Find and click the "Join" button to join Iz9vs2k's server
+        join_button = driver.find_element(By.XPATH, "//button[@aria-label='Join game']")
         join_button.click()
-        print(f"[SUCCESS] {account['username']} successfully joined the game.")
 
-        # Stay AFK indefinitely
-        print(f"[INFO] {account['username']} is now AFK in the game.")
+        # Wait for the game to load and start AFK mode
+        time.sleep(10)  # Adjust time as needed
+
+        # AFK logic (simulating no actions)
         while True:
-            time.sleep(300)  # Keep the session alive every 5 minutes
+            time.sleep(100)  # Keep the account idle
 
     except Exception as e:
-        print(f"[ERROR] {account['username']} failed: {e}")
-    
+        print(f"Error for {account['username']}: {e}")
     finally:
         driver.quit()
 
-
+# Main function to manage all accounts and run them concurrently
 def main():
     processes = []
     for account in ACCOUNTS:
-        process = Process(target=login_and_join_afk, args=(account,))
-        process.start()
-        processes.append(process)
-        time.sleep(2)  # Slight delay between logins
+        p = Process(target=login_and_join_afk, args=(account,))
+        p.start()
+        processes.append(p)
 
-    for process in processes:
-        process.join()
+    for p in processes:
+        p.join()
 
-
+# Execute the script
 if __name__ == "__main__":
     main()
